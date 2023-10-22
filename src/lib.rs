@@ -26,7 +26,7 @@ struct TestStruct {
 }
 
 fn divide_by_1000(bytes: &[u8]) -> Result<f32, can_extract::Error> {
-    // Assert we got a 4 byte chunk
+    // Assert we got a 2 byte chunk
     assert!(bytes.len() == std::mem::size_of::<u16>());
 
     // Extract a BE 16 byte value
