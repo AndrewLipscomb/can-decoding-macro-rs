@@ -6,22 +6,8 @@
 use core::default::Default;
 use proc_macro_derive_crate::CanDecode;
 
-fn divide_by_1000(bytes: &[u8]) -> Result<f32, can_extract::Error> {
-    // Assert we got a 4 byte chunk
-    assert!(bytes.len() == std::mem::size_of::<u16>());
-
-    // Extract a BE 16 byte value
-    let original = u16::from_be_bytes(
-        bytes
-            .try_into()
-            .map_err(|e| can_extract::Error::InvalidSlicingLength)?,
-    );
-
-    // And convert to float, with division
-    Ok((original as f32) / 1000.0)
-}
-
 /// A simple test struct
+/// This is the guy we want to decode from an 8 byte CAN message
 #[derive(CanDecode, Debug)]
 struct TestStruct {
     // All items must have an offset, indicating where they start reading in the buffer
@@ -37,6 +23,21 @@ struct TestStruct {
     // Start at byte 6, skipping bytes 4,5 extract 2 bytes for a u16 base value, and convert to f32 via the divide_by_1000 func
     #[can_extract(offset = 6, extract = 2, use_decoder = "divide_by_1000")]
     c: f32,
+}
+
+fn divide_by_1000(bytes: &[u8]) -> Result<f32, can_extract::Error> {
+    // Assert we got a 4 byte chunk
+    assert!(bytes.len() == std::mem::size_of::<u16>());
+
+    // Extract a BE 16 byte value
+    let original = u16::from_be_bytes(
+        bytes
+            .try_into()
+            .map_err(|e| can_extract::Error::InvalidSlicingLength)?,
+    );
+
+    // And convert to float, with division
+    Ok((original as f32) / 1000.0)
 }
 
 #[cfg(test)]
