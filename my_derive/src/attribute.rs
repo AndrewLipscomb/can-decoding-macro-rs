@@ -95,6 +95,9 @@ impl FromAttribute for ContainerAttributes {
 #[derive(Default, Debug)]
 pub struct FieldAttributes {
     pub offset: Option<u8>,
+    pub extract_bytes: Option<u8>,
+    pub use_big_endian: bool,
+    pub use_decoder: Option<String>,
 }
 
 impl FromAttribute for FieldAttributes {
@@ -106,24 +109,45 @@ impl FromAttribute for FieldAttributes {
         let mut result = Self::default();
         for attribute in attributes {
             match attribute {
-                ParsedAttribute::Tag(i) => {
-                    return Err(Error::custom_at("Unknown field attribute", i.span()))
-                }
+                ParsedAttribute::Tag(key) => match key.to_string().as_str() {
+                    "use_big_endian" => {
+                        result.use_big_endian = true;
+                    }
+                    _ => {
+                        return Err(Error::custom_at("Unknown field attribute", key.span()));
+                    }
+                },
                 ParsedAttribute::Property(key, value) => {
                     let str = value.to_string();
-                    if key.to_string() == "offset" {
-                        let Ok(offset_val) = u8::from_str(&str) else {
-                            return Err(Error::custom_at("Invalid offset value", key.span()))
-                        };
-                        if offset_val >= 8 {
-                            return Err(Error::custom_at(
-                                "Invalid offset, must be less than 8",
-                                key.span(),
-                            ));
+                    match key.to_string().as_str() {
+                        "offset" => {
+                            let Ok(offset_val) = u8::from_str(&str) else {
+                                return Err(Error::custom_at("Invalid offset value", key.span()))
+                            };
+                            if offset_val >= 8 {
+                                return Err(Error::custom_at(
+                                    "Invalid offset, must be less than 8",
+                                    key.span(),
+                                ));
+                            }
+                            result.offset = Some(offset_val);
                         }
-                        result.offset = Some(offset_val);
-                    } else {
-                        return Err(Error::custom_at("Unknown field attribute", key.span()));
+                        "use_decoder" => {
+                            result.use_decoder = Some(str.replace("\"", ""));
+                        }
+                        "extract" => {
+                            result.extract_bytes = u8::from_str(&str)
+                                .map_err(|e| {
+                                    Error::custom_at(
+                                        format!("Invalid extract value - {}", e),
+                                        key.span(),
+                                    )
+                                })?
+                                .into();
+                        }
+                        _ => {
+                            return Err(Error::custom_at("Unknown field attribute", key.span()));
+                        }
                     }
                 }
                 _ => {}

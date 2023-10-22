@@ -37,8 +37,6 @@ impl DeriveStruct {
             .with_arg("frame", "[u8; 8]")
             .with_return_type(format!("core::result::Result<Self, {}::Error>", crate_name))
             .body(|fn_body| {
-                fn_body.push_parsed("let mut offset: usize = 0;");
-
                 fn_body.ident_str("Ok");
                 fn_body.group(Delimiter::Parenthesis, |ok_group| {
                     ok_group.ident_str("Self");
@@ -57,19 +55,48 @@ impl DeriveStruct {
                                     return Err(Error::Custom { error: "Did not add an offset for struct member".into(), span: Some(ident.span()) });
                                 };
 
-                                // u32::from_ne_bytes(
-                                //     advance_token::<u32>(&mut offset, &frame)?
-                                //         .try_into()
-                                //         .map_err(|_| can_extract::Error::InvalidBytesConversion)?,
-
                                 let type_str = field.type_string();
-                                struct_body
-                                .push_parsed(format!(
-                                    "{1}: {2}::from_ne_bytes( advance_token::<{2}>(&mut offset, &frame)?.try_into().map_err(|_| {0}::Error::InvalidBytesConversion)?,),",
-                                    crate_name,
-                                    ident.to_string(),
-                                    type_str
-                                ))?;
+
+                                let advance_token = match attributes.extract_bytes {
+                                    Some(extract) => {
+                                        format!("{0}::helper::extract_offset_by({1}, &frame, {2})", crate_name, offset, extract)
+                                    }
+                                    None => {
+                                        format!("{0}::helper::extract_offset::<{2}>({1}, &frame)", crate_name, offset, type_str)
+                                    }
+                                };
+
+                                if let Some(decoder) = attributes.use_decoder {
+                                    struct_body
+                                    .push_parsed(
+                                        format!(
+                                        "{1}: {3}( {2}?.try_into().map_err(|_| {0}::Error::InvalidBytesConversion)?,)?,",
+                                        crate_name,
+                                        ident.to_string(),
+                                        advance_token,
+                                        decoder,
+                                    ))?;
+                                }
+                                else if attributes.use_big_endian {
+                                    struct_body
+                                    .push_parsed(format!(
+                                        "{1}: {3}::from_be_bytes( {2}?.try_into().map_err(|_| {0}::Error::InvalidBytesConversion)?,),",
+                                        crate_name,
+                                        ident.to_string(),
+                                        advance_token,
+                                        type_str,
+                                    ))?;
+                                }
+                                else {
+                                    struct_body
+                                    .push_parsed(format!(
+                                        "{1}: {3}::from_le_bytes( {2}?.try_into().map_err(|_| {0}::Error::InvalidBytesConversion)?,),",
+                                        crate_name,
+                                        ident.to_string(),
+                                        advance_token,
+                                        type_str,
+                                    ))?;
+                                }
 
                                 // fn_body.push_parsed(format!(
                                 //     "{}::Encode::encode(&self.{}, encoder)?;",
