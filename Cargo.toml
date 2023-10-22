@@ -1,0 +1,10 @@
+[package]
+name = "proc-macro-crate"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+can-extract = { path = "can_extract", version = "0.1.0" }
+proc-macro-derive-crate = { path = "my_derive", version = "0.1.0" }
